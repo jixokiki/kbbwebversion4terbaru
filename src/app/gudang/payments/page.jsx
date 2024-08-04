@@ -4200,7 +4200,7 @@ const Purchase = () => {
                         const { statusDelivery, deliveryDate } = itemDoc.data();
 
                         if (statusDelivery === "siap dikirim") {
-                            requestOrderUpdates.push(updateDoc(itemRef, { statusDelivery: "dikirim" }));
+                            requestOrderUpdates.push(updateDoc(itemRef, { statusDelivery: "menunggu dikirim" }));
                         }
                         if (deliveryDate) {
                             const currentDate = new Date(deliveryDate);
@@ -4564,9 +4564,9 @@ const Purchase = () => {
                 <button className="btn btn-primary" onClick={handleProcess}>
                     Proses
                 </button>
-                <button className="btn btn-primary mx-4" onClick={handleSelesai}>
+                {/* <button className="btn btn-primary mx-4" onClick={handleSelesai}>
                     Selesai
-                </button>
+                </button> */}
             </div>
 
             <dialog id="combinedForm" className="modal">

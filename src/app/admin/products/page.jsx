@@ -617,292 +617,1506 @@
 
 
 
+// "use client";
+// import React, { useEffect, useState } from "react";
+// import { collection, doc, onSnapshot, updateDoc, getDoc, addDoc, query, orderBy } from "firebase/firestore";
+// import { db } from "@/firebase/firebase";
+// import useAuth from "@/app/hooks/useAuth";
+// import NavbarGudang from "@/components/NavbarGudang";
+// import Footer from "@/components/Footer";
+// import { useRouter } from "next/navigation"; // import useRouter from next/router
+// import NavbarAdmin from "@/components/NavbarAdmin";
+
+// const Purchase = () => {
+//     const { user, userProfile } = useAuth();
+//     const [dataPembelian, setDataPembelian] = useState([]);
+//     const [dataRequestOrder, setDataRequestOrder] = useState([]);
+//     const [dataRelasi, setDataRelasi] = useState([]);
+//     const [selectedItems, setSelectedItems] = useState([]);
+//     const [nominalInput, setNominalInput] = useState("");
+//     const [deliveryData, setDeliveryData] = useState([]);
+//     const router = useRouter(); // initialize router
+
+//     useEffect(() => {
+//         if (user && userProfile.role === "user") {
+//             router.push("/");
+//         }
+//     }, [user, userProfile]);
+
+//     useEffect(() => {
+//         const unsubscribePembelian = onSnapshot(collection(db, "userPembelian"), (snapshot) => {
+//             const pembelianData = snapshot.docs.map((doc) => ({
+//                 id: doc.id,
+//                 ...doc.data()
+//             }));
+//             setDataPembelian(pembelianData);
+//         });
+
+//         const unsubscribeRequestOrder = onSnapshot(collection(db, "userRequestOrder"), (snapshot) => {
+//             const requestOrderData = snapshot.docs.map((doc) => ({
+//                 id: doc.id,
+//                 ...doc.data()
+//             }));
+//             setDataRequestOrder(requestOrderData);
+//         });
+
+//         const unsubscribeRelasi = onSnapshot(collection(db, "userRelasi"), (snapshot) => {
+//             const relasiData = snapshot.docs.map((doc) => ({
+//                 id: doc.id,
+//                 ...doc.data()
+//             }));
+//             setDataRelasi(relasiData);
+//         });
+
+//         const q = query(collection(db, "userDelivery"), orderBy("createdAt", "desc"));
+//         const unsubscribeDelivery = onSnapshot(q, (snapshot) => {
+//             const deliveryData = snapshot.docs.map((doc) => ({
+//                 id: doc.id,
+//                 ...doc.data()
+//             }));
+//             setDeliveryData(deliveryData);
+//         });
+
+//         return () => {
+//             unsubscribePembelian();
+//             unsubscribeRequestOrder();
+//             unsubscribeRelasi();
+//             unsubscribeDelivery();
+//         };
+//     }, []);
+
+//     const handleCheckboxChange = (itemId, type) => {
+//         const selectedIndex = selectedItems.findIndex((item) => item.id === itemId && item.type === type);
+//         let newSelected = [];
+
+//         if (selectedIndex === -1) {
+//             newSelected = newSelected.concat(selectedItems, { id: itemId, type });
+//         } else if (selectedIndex === 0) {
+//             newSelected = newSelected.concat(selectedItems.slice(1));
+//         } else if (selectedIndex === selectedItems.length - 1) {
+//             newSelected = newSelected.concat(selectedItems.slice(0, -1));
+//         } else if (selectedIndex > 0) {
+//             newSelected = newSelected.concat(selectedItems.slice(0, selectedIndex), selectedItems.slice(selectedIndex + 1));
+//         }
+
+//         setSelectedItems(newSelected);
+//     };
+
+//     const handleProcess = (e) => {
+//         e.preventDefault();
+
+//         const nominal = selectedItems
+//             .filter(item => item.type === "relasi")
+//             .map(item => {
+//                 const selectedData = dataRelasi.find(data => data.id === item.id);
+//                 return selectedData ? selectedData.stock : Infinity;
+//             })
+//             .reduce((min, stock) => Math.min(min, stock), Infinity);
+
+//         setNominalInput(nominal === Infinity ? "" : nominal);
+
+//         const modal = document.getElementById("combinedForm");
+//         modal.showModal();
+//     };
+
+//     const handleSelesai = async () => {
+//         try {
+//             const requestOrderUpdates = selectedItems
+//                 .filter(item => item.type === "relasi")
+//                 .map(async (selectedItem) => {
+//                     const itemRef = doc(db, "userRelasi", selectedItem.id);
+//                     const itemDoc = await getDoc(itemRef);
+
+//                     if (itemDoc.exists()) {
+//                         const { status, deliveryDate } = itemDoc.data();
+
+//                         if (status === "dikirim") {
+//                             requestOrderUpdates.push(updateDoc(itemRef, { status: "diproses" }));
+//                         }
+//                         if (deliveryDate) {
+//                             const currentDate = new Date(deliveryDate);
+//                             currentDate.setMonth(currentDate.getMonth() + 1);
+//                             const newDeliveryDate = currentDate.toISOString().split("T")[0];
+//                             requestOrderUpdates.push(updateDoc(itemRef, { deliveryDate: newDeliveryDate }));
+//                         }
+//                     }
+//                 });
+
+//             await Promise.all(requestOrderUpdates);
+
+//             alert("Status berhasil diperbarui menjadi 'Diproses'!");
+//         } catch (error) {
+//             console.error("Error updating status:", error);
+//         }
+//     };
+
+//     const handleStockReduction = async () => {
+//         try {
+//             if (!nominalInput) {
+//                 alert("Masukkan nominal untuk pengurangan stock.");
+//                 return;
+//             }
+
+//             const nominal = parseInt(nominalInput);
+
+//             const pembelianUpdates = [];
+//             const requestOrderUpdates = [];
+//             const relasiUpdates = [];
+
+//             for (const selectedItem of selectedItems) {
+//                 const { id, type } = selectedItem;
+
+//                 if (type === "pembelian") {
+//                     const itemRef = doc(db, "userPembelian", id);
+//                     const itemDoc = await getDoc(itemRef);
+
+//                     if (itemDoc.exists()) {
+//                         const { stock } = itemDoc.data();
+
+//                         if (stock >= nominal) {
+//                             const newStock = stock - nominal;
+//                             pembelianUpdates.push(updateDoc(itemRef, { stock: newStock }));
+//                         } else {
+//                             alert(`Stock tidak mencukupi untuk item ${id}`);
+//                             return;
+//                         }
+//                     }
+//                 } else if (type === "relasi") {
+//                     const itemRef = doc(db, "userRelasi", id);
+//                     const itemDoc = await getDoc(itemRef);
+
+//                     if (itemDoc.exists()) {
+//                         const { status } = itemDoc.data();
+
+//                         if (status === "diproses") {
+//                             requestOrderUpdates.push(updateDoc(itemRef, { status: "dikirim" }));
+//                         }
+//                     }
+//                 }
+//             }
+
+//             // Perform stock reduction for pembelian items
+//             await Promise.all(pembelianUpdates);
+
+//             // Perform status update for request order items
+//             await Promise.all(requestOrderUpdates);
+
+//             // Perform delivery date update for relasi items
+//             await Promise.all(relasiUpdates);
+
+//             // Create invoice from selected items
+//             const invoiceData = selectedItems.map((selectedItem) => {
+//                 const { id, type } = selectedItem;
+//                 if (type === "pembelian") {
+//                     return dataPembelian.find((item) => item.id === id);
+//                 } else if (type === "relasi") {
+//                     return dataRelasi.find((item) => item.id === id);
+//                 }
+//                 return null;
+//             }).filter(item => item !== null);
+
+//             await addDoc(collection(db, "userDelivery"), {
+//                 items: invoiceData,
+//                 createdAt: new Date()
+//             });
+
+//             alert("Pengurangan stock berhasil dilakukan dan invoice berhasil dibuat!");
+//             document.getElementById("combinedForm").close();
+//             setSelectedItems([]);
+//             setNominalInput("");
+//         } catch (error) {
+//             console.error("Error reducing stock:", error);
+//         }
+//     };
+
+//     const handleDeliver = async (deliveryId) => {
+//         try {
+//             const deliveryDoc = await getDoc(doc(db, "userRelasi", deliveryId));
+//             if (deliveryDoc.exists()) {
+//                 const deliveryItems = deliveryDoc.data().items;
+
+//                 const updatedItems = deliveryItems.map((item) => {
+//                     if (item.statusDelivery === "siap dikirim") {
+//                         return { ...item, statusDelivery: "menunggu dikirim" };
+//                     }
+//                     return item;
+//                 });
+
+//                 await updateDoc(doc(db, "userRelasi", deliveryId), { items: updatedItems });
+//                 alert("Status berhasil diperbarui menjadi 'dikirim'!");
+//             } else {
+//                 console.error(`No delivery document found for ID: ${deliveryId}`);
+//             }
+//         } catch (error) {
+//             console.error("Error updating delivery status:", error);
+//         }
+//     };
+
+//     const groupOrdersByField = (orders, field) => {
+//         const groupedOrders = {};
+//         orders.forEach((order) => {
+//             if (!groupedOrders[order[field]]) {
+//                 groupedOrders[order[field]] = [];
+//             }
+//             groupedOrders[order[field]].push(order);
+//         });
+//         return groupedOrders;
+//     };
+
+//     return (
+//         <div className="w-full mx-auto h-12 mt-10">
+//             <NavbarAdmin />
+
+//             {/* Section to display the created delivery */}
+//             <div className="w-[90%] mx-auto mt-10">
+//                 <h2 className="text-2xl font-semibold mb-5">Delivery Details</h2>
+//                 <div className="border p-4 rounded-md">
+//                     {deliveryData.length > 0 ? (
+//                         deliveryData.map((delivery, index) => (
+//                             <div key={index} className="mb-4">
+//                                 <h4 className="text-xl font-semibold">Invoice {index + 1}</h4>
+//                                 {delivery.items.map((item, idx) => (
+//                                     <div key={idx} className="mb-4">
+//                                         <p>Nama: {item.itemName || item.fullName}</p>
+//                                         <p>Kategori Kemasan: {item.packaging}</p>
+//                                         <p>Jumlah Kemasan: {item.stock}</p>
+//                                         <p>Status: {item.statusDelivery}</p>
+//                                         {item.image && <img src={item.image} alt="Payment Proof" className="h-52 w-auto mt-2 mx-auto" />}
+//                                         <p>Alamat: {item.address}</p>
+//                                         <p>Kontak: {item.contact}</p>
+//                                     </div>
+//                                 ))}
+//                                 <button className="btn btn-primary" onClick={() => handleDeliver(delivery.id)}>
+//                                     Deliver
+//                                 </button>
+//                             </div>
+//                         ))
+//                     ) : (
+//                         <p>No delivery data to display.</p>
+//                     )}
+//                 </div>
+//             </div>
+
+//             <Footer />
+//         </div>
+//     );
+// };
+
+// export default Purchase;
+
+
+// "use client";
+// import React, { useEffect, useState } from "react";
+// import { collection, doc, onSnapshot, updateDoc, getDoc, addDoc, query, orderBy } from "firebase/firestore";
+// import { db } from "@/firebase/firebase";
+// import useAuth from "@/app/hooks/useAuth";
+// import NavbarGudang from "@/components/NavbarGudang";
+// import Footer from "@/components/Footer";
+// import { useRouter } from "next/navigation"; // import useRouter from next/router
+// import NavbarAdmin from "@/components/NavbarAdmin";
+
+// const Purchase = () => {
+//     const { user, userProfile } = useAuth();
+//     const [dataPembelian, setDataPembelian] = useState([]);
+//     const [dataRequestOrder, setDataRequestOrder] = useState([]);
+//     const [dataRelasi, setDataRelasi] = useState([]);
+//     const [selectedItems, setSelectedItems] = useState([]);
+//     const [nominalInput, setNominalInput] = useState("");
+//     const [deliveryData, setDeliveryData] = useState([]);
+//     const router = useRouter(); // initialize router
+
+//     useEffect(() => {
+//         if (user && userProfile.role === "user") {
+//             router.push("/");
+//         }
+//     }, [user, userProfile]);
+
+//     useEffect(() => {
+//         const unsubscribePembelian = onSnapshot(collection(db, "userPembelian"), (snapshot) => {
+//             const pembelianData = snapshot.docs.map((doc) => ({
+//                 id: doc.id,
+//                 ...doc.data()
+//             }));
+//             setDataPembelian(pembelianData);
+//         });
+
+//         const unsubscribeRequestOrder = onSnapshot(collection(db, "userRequestOrder"), (snapshot) => {
+//             const requestOrderData = snapshot.docs.map((doc) => ({
+//                 id: doc.id,
+//                 ...doc.data()
+//             }));
+//             setDataRequestOrder(requestOrderData);
+//         });
+
+//         const unsubscribeRelasi = onSnapshot(collection(db, "userRelasi"), (snapshot) => {
+//             const relasiData = snapshot.docs.map((doc) => ({
+//                 id: doc.id,
+//                 ...doc.data()
+//             }));
+//             setDataRelasi(relasiData);
+//         });
+
+//         const q = query(collection(db, "userDelivery"), orderBy("createdAt", "desc"));
+//         const unsubscribeDelivery = onSnapshot(q, (snapshot) => {
+//             const deliveryData = snapshot.docs.map((doc) => ({
+//                 id: doc.id,
+//                 ...doc.data()
+//             }));
+//             setDeliveryData(deliveryData);
+//         });
+
+//         return () => {
+//             unsubscribePembelian();
+//             unsubscribeRequestOrder();
+//             unsubscribeRelasi();
+//             unsubscribeDelivery();
+//         };
+//     }, []);
+
+//     const handleCheckboxChange = (itemId, type) => {
+//         const selectedIndex = selectedItems.findIndex((item) => item.id === itemId && item.type === type);
+//         let newSelected = [];
+
+//         if (selectedIndex === -1) {
+//             newSelected = newSelected.concat(selectedItems, { id: itemId, type });
+//         } else if (selectedIndex === 0) {
+//             newSelected = newSelected.concat(selectedItems.slice(1));
+//         } else if (selectedIndex === selectedItems.length - 1) {
+//             newSelected = newSelected.concat(selectedItems.slice(0, -1));
+//         } else if (selectedIndex > 0) {
+//             newSelected = newSelected.concat(selectedItems.slice(0, selectedIndex), selectedItems.slice(selectedIndex + 1));
+//         }
+
+//         setSelectedItems(newSelected);
+//     };
+
+//     const handleProcess = (e) => {
+//         e.preventDefault();
+
+//         const nominal = selectedItems
+//             .filter(item => item.type === "relasi")
+//             .map(item => {
+//                 const selectedData = dataRelasi.find(data => data.id === item.id);
+//                 return selectedData ? selectedData.stock : Infinity;
+//             })
+//             .reduce((min, stock) => Math.min(min, stock), Infinity);
+
+//         setNominalInput(nominal === Infinity ? "" : nominal);
+
+//         const modal = document.getElementById("combinedForm");
+//         modal.showModal();
+//     };
+
+//     const handleSelesai = async () => {
+//         try {
+//             const requestOrderUpdates = selectedItems
+//                 .filter(item => item.type === "relasi")
+//                 .map(async (selectedItem) => {
+//                     const itemRef = doc(db, "userRelasi", selectedItem.id);
+//                     const itemDoc = await getDoc(itemRef);
+
+//                     if (itemDoc.exists()) {
+//                         const { status, deliveryDate } = itemDoc.data();
+
+//                         if (status === "dikirim") {
+//                             requestOrderUpdates.push(updateDoc(itemRef, { status: "diproses" }));
+//                         }
+//                         if (deliveryDate) {
+//                             const currentDate = new Date(deliveryDate);
+//                             currentDate.setMonth(currentDate.getMonth() + 1);
+//                             const newDeliveryDate = currentDate.toISOString().split("T")[0];
+//                             requestOrderUpdates.push(updateDoc(itemRef, { deliveryDate: newDeliveryDate }));
+//                         }
+//                     }
+//                 });
+
+//             await Promise.all(requestOrderUpdates);
+
+//             alert("Status berhasil diperbarui menjadi 'Diproses'!");
+//         } catch (error) {
+//             console.error("Error updating status:", error);
+//         }
+//     };
+
+//     const handleStockReduction = async () => {
+//         try {
+//             if (!nominalInput) {
+//                 alert("Masukkan nominal untuk pengurangan stock.");
+//                 return;
+//             }
+
+//             const nominal = parseInt(nominalInput);
+
+//             const pembelianUpdates = [];
+//             const requestOrderUpdates = [];
+//             const relasiUpdates = [];
+
+//             for (const selectedItem of selectedItems) {
+//                 const { id, type } = selectedItem;
+
+//                 if (type === "pembelian") {
+//                     const itemRef = doc(db, "userPembelian", id);
+//                     const itemDoc = await getDoc(itemRef);
+
+//                     if (itemDoc.exists()) {
+//                         const { stock } = itemDoc.data();
+
+//                         if (stock >= nominal) {
+//                             const newStock = stock - nominal;
+//                             pembelianUpdates.push(updateDoc(itemRef, { stock: newStock }));
+//                         } else {
+//                             alert(`Stock tidak mencukupi untuk item ${id}`);
+//                             return;
+//                         }
+//                     }
+//                 } else if (type === "relasi") {
+//                     const itemRef = doc(db, "userRelasi", id);
+//                     const itemDoc = await getDoc(itemRef);
+
+//                     if (itemDoc.exists()) {
+//                         const { status } = itemDoc.data();
+
+//                         if (status === "diproses") {
+//                             requestOrderUpdates.push(updateDoc(itemRef, { status: "dikirim" }));
+//                         }
+//                     }
+//                 }
+//             }
+
+//             // Perform stock reduction for pembelian items
+//             await Promise.all(pembelianUpdates);
+
+//             // Perform status update for request order items
+//             await Promise.all(requestOrderUpdates);
+
+//             // Perform delivery date update for relasi items
+//             await Promise.all(relasiUpdates);
+
+//             // Create invoice from selected items
+//             const invoiceData = selectedItems.map((selectedItem) => {
+//                 const { id, type } = selectedItem;
+//                 if (type === "pembelian") {
+//                     return dataPembelian.find((item) => item.id === id);
+//                 } else if (type === "relasi") {
+//                     return dataRelasi.find((item) => item.id === id);
+//                 }
+//                 return null;
+//             }).filter(item => item !== null);
+
+//             await addDoc(collection(db, "userDelivery"), {
+//                 items: invoiceData,
+//                 createdAt: new Date()
+//             });
+
+//             alert("Pengurangan stock berhasil dilakukan dan invoice berhasil dibuat!");
+//             document.getElementById("combinedForm").close();
+//             setSelectedItems([]);
+//             setNominalInput("");
+//         } catch (error) {
+//             console.error("Error reducing stock:", error);
+//         }
+//     };
+
+//     //code fix handle deliver pembaruan statusDelivery pada userDeliver 
+//     // const handleDeliver = async (deliveryId) => {
+//     //     try {
+//     //         console.log(`Attempting to retrieve document with ID: ${deliveryId}`); // Debugging line
+//     //         const deliveryDoc = await getDoc(doc(db, "userDelivery", deliveryId)); // Retrieve from userDelivery
+//     //         console.log(`Document data:`, deliveryDoc.data()); // Debugging line
+    
+//     //         if (deliveryDoc.exists()) {
+//     //             const deliveryItems = deliveryDoc.data().items;
+    
+//     //             const updatePromises = deliveryItems.map(async (item) => {
+//     //                 const itemRef = doc(db, "userRelasi", item.id); // Get reference from userRelasi
+//     //                 const itemDoc = await getDoc(itemRef);
+    
+//     //                 if (itemDoc.exists()) {
+//     //                     const { statusDelivery } = itemDoc.data();
+    
+//     //                     if (statusDelivery === "siap dikirim") {
+//     //                         await updateDoc(itemRef, { statusDelivery: "menunggu dikirim" });
+//     //                     }
+//     //                 } else {
+//     //                     console.error(`No userRelasi document found for ID: ${item.id}`);
+//     //                 }
+//     //             });
+    
+//     //             await Promise.all(updatePromises);
+    
+//     //             alert("Status berhasil diperbarui menjadi 'menunggu dikirim'!");
+//     //         } else {
+//     //             console.error(`No delivery document found for ID: ${deliveryId}`);
+//     //         }
+//     //     } catch (error) {
+//     //         console.error("Error updating delivery status:", error);
+//     //     }
+//     // };
+    
+//     const handleDeliver = async (deliveryId) => {
+//         try {
+//             console.log(`Attempting to retrieve document with ID: ${deliveryId}`); // Debugging line
+//             const deliveryDoc = await getDoc(doc(db, "userDelivery", deliveryId)); // Retrieve from userDelivery
+//             console.log(`Document data:`, deliveryDoc.data()); // Debugging line
+    
+//             if (deliveryDoc.exists()) {
+//                 const deliveryItems = deliveryDoc.data().items;
+    
+//                 const updatePromises = deliveryItems.map(async (item) => {
+//                     const itemRef = doc(db, "userRelasi", item.id); // Get reference from userRelasi
+//                     const itemDoc = await getDoc(itemRef);
+    
+//                     if (itemDoc.exists()) {
+//                         const { statusDelivery } = itemDoc.data();
+    
+//                         if (statusDelivery === "siap dikirim") {
+//                             await updateDoc(itemRef, { statusDelivery: "menunggu dikirim" });
+    
+//                             // Update local state
+//                             setDataRelasi((prevData) =>
+//                                 prevData.map((dataItem) =>
+//                                     dataItem.id === item.id ? { ...dataItem, statusDelivery: "menunggu dikirim" } : dataItem
+//                                 )
+//                             );
+//                         }
+//                     } else {
+//                         console.error(`No userRelasi document found for ID: ${item.id}`);
+//                     }
+//                 });
+    
+//                 await Promise.all(updatePromises);
+    
+//                 alert("Status berhasil diperbarui menjadi 'menunggu dikirim'!");
+//             } else {
+//                 console.error(`No delivery document found for ID: ${deliveryId}`);
+//             }
+//         } catch (error) {
+//             console.error("Error updating delivery status:", error);
+//         }
+//     };
+    
+    
+
+//     const groupOrdersByField = (orders, field) => {
+//         const groupedOrders = {};
+//         orders.forEach((order) => {
+//             if (!groupedOrders[order[field]]) {
+//                 groupedOrders[order[field]] = [];
+//             }
+//             groupedOrders[order[field]].push(order);
+//         });
+//         return groupedOrders;
+//     };
+
+//     return (
+//         <div className="w-full mx-auto h-12 mt-10">
+//             <NavbarAdmin />
+
+//             {/* Section to display the created delivery */}
+//             <div className="w-[90%] mx-auto mt-10">
+//                 <h2 className="text-2xl font-semibold mb-5">Delivery Details</h2>
+//                 <div className="border p-4 rounded-md">
+//                     {deliveryData.length > 0 ? (
+//                         deliveryData.map((delivery, index) => (
+//                             <div key={index} className="mb-4">
+//                                 <h4 className="text-xl font-semibold">Invoice {index + 1}</h4>
+//                                 {delivery.items.map((item, idx) => (
+//                                     <div key={idx} className="mb-4">
+//                                         <p>Nama: {item.itemName || item.fullName}</p>
+//                                         <p>Kategori Kemasan: {item.packaging}</p>
+//                                         <p>Jumlah Kemasan: {item.stock}</p>
+//                                         <p>Status: {item.statusDelivery}</p>
+//                                         {item.image && <img src={item.image} alt="Payment Proof" className="h-52 w-auto mt-2 mx-auto" />}
+//                                         <p>Alamat: {item.address}</p>
+//                                         <p>Kontak: {item.contact}</p>
+//                                     </div>
+//                                 ))}
+//                                 <button className="btn btn-primary" onClick={() => handleDeliver(delivery.id)}>
+//                                     Deliver
+//                                 </button>
+//                             </div>
+//                         ))
+//                     ) : (
+//                         <p>No delivery data to display.</p>
+//                     )}
+//                 </div>
+//             </div>
+
+//             <Footer />
+//         </div>
+//     );
+// };
+
+// export default Purchase;
+
+
+// "use client";
+// import React, { useEffect, useState } from "react";
+// import { collection, doc, onSnapshot, updateDoc, getDoc, addDoc, query, orderBy } from "firebase/firestore";
+// import { db } from "@/firebase/firebase";
+// import useAuth from "@/app/hooks/useAuth";
+// import NavbarGudang from "@/components/NavbarGudang";
+// import Footer from "@/components/Footer";
+// import { useRouter } from "next/navigation"; // import useRouter from next/router
+// import NavbarAdmin from "@/components/NavbarAdmin";
+
+// const Purchase = () => {
+//     const { user, userProfile } = useAuth();
+//     const [dataPembelian, setDataPembelian] = useState([]);
+//     const [dataRequestOrder, setDataRequestOrder] = useState([]);
+//     const [dataRelasi, setDataRelasi] = useState([]);
+//     const [selectedItems, setSelectedItems] = useState([]);
+//     const [nominalInput, setNominalInput] = useState("");
+//     const [deliveryData, setDeliveryData] = useState([]);
+//     const router = useRouter(); // initialize router
+
+//     useEffect(() => {
+//         if (user && userProfile.role === "user") {
+//             router.push("/");
+//         }
+//     }, [user, userProfile]);
+
+//     useEffect(() => {
+//         const unsubscribePembelian = onSnapshot(collection(db, "userPembelian"), (snapshot) => {
+//             const pembelianData = snapshot.docs.map((doc) => ({
+//                 id: doc.id,
+//                 ...doc.data()
+//             }));
+//             setDataPembelian(pembelianData);
+//         });
+
+//         const unsubscribeRequestOrder = onSnapshot(collection(db, "userRequestOrder"), (snapshot) => {
+//             const requestOrderData = snapshot.docs.map((doc) => ({
+//                 id: doc.id,
+//                 ...doc.data()
+//             }));
+//             setDataRequestOrder(requestOrderData);
+//         });
+
+//         const unsubscribeRelasi = onSnapshot(collection(db, "userRelasi"), (snapshot) => {
+//             const relasiData = snapshot.docs.map((doc) => ({
+//                 id: doc.id,
+//                 ...doc.data()
+//             }));
+//             setDataRelasi(relasiData);
+//         });
+
+//         const q = query(collection(db, "userDelivery"), orderBy("createdAt", "desc"));
+//         const unsubscribeDelivery = onSnapshot(q, (snapshot) => {
+//             const deliveryData = snapshot.docs.map((doc) => ({
+//                 id: doc.id,
+//                 ...doc.data()
+//             }));
+//             setDeliveryData(deliveryData);
+//         });
+
+//         return () => {
+//             unsubscribePembelian();
+//             unsubscribeRequestOrder();
+//             unsubscribeRelasi();
+//             unsubscribeDelivery();
+//         };
+//     }, []);
+
+//     const handleCheckboxChange = (itemId, type) => {
+//         const selectedIndex = selectedItems.findIndex((item) => item.id === itemId && item.type === type);
+//         let newSelected = [];
+
+//         if (selectedIndex === -1) {
+//             newSelected = newSelected.concat(selectedItems, { id: itemId, type });
+//         } else if (selectedIndex === 0) {
+//             newSelected = newSelected.concat(selectedItems.slice(1));
+//         } else if (selectedIndex === selectedItems.length - 1) {
+//             newSelected = newSelected.concat(selectedItems.slice(0, -1));
+//         } else if (selectedIndex > 0) {
+//             newSelected = newSelected.concat(selectedItems.slice(0, selectedIndex), selectedItems.slice(selectedIndex + 1));
+//         }
+
+//         setSelectedItems(newSelected);
+//     };
+
+//     const handleProcess = (e) => {
+//         e.preventDefault();
+
+//         const nominal = selectedItems
+//             .filter(item => item.type === "relasi")
+//             .map(item => {
+//                 const selectedData = dataRelasi.find(data => data.id === item.id);
+//                 return selectedData ? selectedData.stock : Infinity;
+//             })
+//             .reduce((min, stock) => Math.min(min, stock), Infinity);
+
+//         setNominalInput(nominal === Infinity ? "" : nominal);
+
+//         const modal = document.getElementById("combinedForm");
+//         modal.showModal();
+//     };
+
+//     const handleSelesai = async () => {
+//         try {
+//             const requestOrderUpdates = selectedItems
+//                 .filter(item => item.type === "relasi")
+//                 .map(async (selectedItem) => {
+//                     const itemRef = doc(db, "userRelasi", selectedItem.id);
+//                     const itemDoc = await getDoc(itemRef);
+
+//                     if (itemDoc.exists()) {
+//                         const { status, deliveryDate } = itemDoc.data();
+
+//                         if (status === "dikirim") {
+//                             requestOrderUpdates.push(updateDoc(itemRef, { status: "diproses" }));
+//                         }
+//                         if (deliveryDate) {
+//                             const currentDate = new Date(deliveryDate);
+//                             currentDate.setMonth(currentDate.getMonth() + 1);
+//                             const newDeliveryDate = currentDate.toISOString().split("T")[0];
+//                             requestOrderUpdates.push(updateDoc(itemRef, { deliveryDate: newDeliveryDate }));
+//                         }
+//                     }
+//                 });
+
+//             await Promise.all(requestOrderUpdates);
+
+//             alert("Status berhasil diperbarui menjadi 'Diproses'!");
+//         } catch (error) {
+//             console.error("Error updating status:", error);
+//         }
+//     };
+
+//     const handleStockReduction = async () => {
+//         try {
+//             if (!nominalInput) {
+//                 alert("Masukkan nominal untuk pengurangan stock.");
+//                 return;
+//             }
+
+//             const nominal = parseInt(nominalInput);
+
+//             const pembelianUpdates = [];
+//             const requestOrderUpdates = [];
+//             const relasiUpdates = [];
+
+//             for (const selectedItem of selectedItems) {
+//                 const { id, type } = selectedItem;
+
+//                 if (type === "pembelian") {
+//                     const itemRef = doc(db, "userPembelian", id);
+//                     const itemDoc = await getDoc(itemRef);
+
+//                     if (itemDoc.exists()) {
+//                         const { stock } = itemDoc.data();
+
+//                         if (stock >= nominal) {
+//                             const newStock = stock - nominal;
+//                             pembelianUpdates.push(updateDoc(itemRef, { stock: newStock }));
+//                         } else {
+//                             alert(`Stock tidak mencukupi untuk item ${id}`);
+//                             return;
+//                         }
+//                     }
+//                 } else if (type === "relasi") {
+//                     const itemRef = doc(db, "userRelasi", id);
+//                     const itemDoc = await getDoc(itemRef);
+
+//                     if (itemDoc.exists()) {
+//                         const { status } = itemDoc.data();
+
+//                         if (status === "diproses") {
+//                             requestOrderUpdates.push(updateDoc(itemRef, { status: "dikirim" }));
+//                         }
+//                     }
+//                 }
+//             }
+
+//             // Perform stock reduction for pembelian items
+//             await Promise.all(pembelianUpdates);
+
+//             // Perform status update for request order items
+//             await Promise.all(requestOrderUpdates);
+
+//             // Perform delivery date update for relasi items
+//             await Promise.all(relasiUpdates);
+
+//             // Create invoice from selected items
+//             const invoiceData = selectedItems.map((selectedItem) => {
+//                 const { id, type } = selectedItem;
+//                 if (type === "pembelian") {
+//                     return dataPembelian.find((item) => item.id === id);
+//                 } else if (type === "relasi") {
+//                     return dataRelasi.find((item) => item.id === id);
+//                 }
+//                 return null;
+//             }).filter(item => item !== null);
+
+//             await addDoc(collection(db, "userDelivery"), {
+//                 items: invoiceData,
+//                 createdAt: new Date()
+//             });
+
+//             alert("Pengurangan stock berhasil dilakukan dan invoice berhasil dibuat!");
+//             document.getElementById("combinedForm").close();
+//             setSelectedItems([]);
+//             setNominalInput("");
+//         } catch (error) {
+//             console.error("Error reducing stock:", error);
+//         }
+//     };
+
+//     const handleDeliver = async (deliveryId) => {
+//         try {
+//             console.log(`Attempting to retrieve document with ID: ${deliveryId}`); // Debugging line
+//             const deliveryDoc = await getDoc(doc(db, "userDelivery", deliveryId)); // Retrieve from userDelivery
+//             console.log(`Document data:`, deliveryDoc.data()); // Debugging line
+    
+//             if (deliveryDoc.exists()) {
+//                 const deliveryItems = deliveryDoc.data().items;
+    
+//                 const updatePromises = deliveryItems.map(async (item) => {
+//                     console.log(`Processing item with ID: ${item.id}`); // Debugging line
+//                     const itemRef = doc(db, "userRelasi", item.id); // Get reference from userRelasi
+//                     const itemDoc = await getDoc(itemRef);
+    
+//                     if (itemDoc.exists()) {
+//                         const { statusDelivery } = itemDoc.data();
+//                         console.log(`Current statusDelivery for item ID ${item.id}: ${statusDelivery}`); // Debugging line
+    
+//                         if (statusDelivery === "siap dikirim") {
+//                             await updateDoc(itemRef, { statusDelivery: "menunggu dikirim" });
+    
+//                             // Update local state
+//                             setDataRelasi((prevData) =>
+//                                 prevData.map((dataItem) =>
+//                                     dataItem.id === item.id ? { ...dataItem, statusDelivery: "menunggu dikirim" } : dataItem
+//                                 )
+//                             );
+//                         }
+//                     } else {
+//                         console.error(`No userRelasi document found for ID: ${item.id}`);
+//                     }
+//                 });
+    
+//                 await Promise.all(updatePromises);
+    
+//                 alert("Status berhasil diperbarui menjadi 'menunggu dikirim'!");
+//             } else {
+//                 console.error(`No delivery document found for ID: ${deliveryId}`);
+//             }
+//         } catch (error) {
+//             console.error("Error updating delivery status:", error);
+//         }
+//     };
+
+//     const groupOrdersByField = (orders, field) => {
+//         const groupedOrders = {};
+//         orders.forEach((order) => {
+//             if (!groupedOrders[order[field]]) {
+//                 groupedOrders[order[field]] = [];
+//             }
+//             groupedOrders[order[field]].push(order);
+//         });
+//         return groupedOrders;
+//     };
+
+//     return (
+//         <div className="w-full mx-auto h-12 mt-10">
+//             <NavbarAdmin />
+
+//             {/* Section to display the created delivery */}
+//             <div className="w-[90%] mx-auto mt-10">
+//                 <h2 className="text-2xl font-semibold mb-5">Delivery Details</h2>
+//                 <div className="border p-4 rounded-md">
+//                     {deliveryData.length > 0 ? (
+//                         deliveryData.map((delivery, index) => (
+//                             <div key={index} className="mb-4">
+//                                 <h4 className="text-xl font-semibold">Invoice {index + 1}</h4>
+//                                 {delivery.items.map((item, idx) => (
+//                                     <div key={idx} className="mb-4">
+//                                         <p>Nama: {item.itemName || item.fullName}</p>
+//                                         <p>Kategori Kemasan: {item.packaging}</p>
+//                                         <p>Jumlah Kemasan: {item.stock}</p>
+//                                         <p>Status: {item.statusDelivery}</p>
+//                                         {item.image && <img src={item.image} alt="Payment Proof" className="h-52 w-auto mt-2 mx-auto" />}
+//                                         <p>Alamat: {item.address}</p>
+//                                         <p>Kontak: {item.contact}</p>
+//                                     </div>
+//                                 ))}
+//                                 <button className="btn btn-primary" onClick={() => handleDeliver(delivery.id)}>
+//                                     Deliver
+//                                 </button>
+//                             </div>
+//                         ))
+//                     ) : (
+//                         <p>No delivery data to display.</p>
+//                     )}
+//                 </div>
+//             </div>
+
+//             <Footer />
+//         </div>
+//     );
+// };
+
+// export default Purchase;
+
+
+// "use client";
+// import React, { useEffect, useState } from "react";
+// import { collection, doc, onSnapshot, updateDoc, getDoc, addDoc, query, orderBy } from "firebase/firestore";
+// import { db } from "@/firebase/firebase";
+// import useAuth from "@/app/hooks/useAuth";
+// import NavbarGudang from "@/components/NavbarGudang";
+// import Footer from "@/components/Footer";
+// import { useRouter } from "next/navigation"; // import useRouter from next/router
+// import NavbarAdmin from "@/components/NavbarAdmin";
+
+// const Purchase = () => {
+//     const { user, userProfile } = useAuth();
+//     const [dataPembelian, setDataPembelian] = useState([]);
+//     const [dataRequestOrder, setDataRequestOrder] = useState([]);
+//     const [dataRelasi, setDataRelasi] = useState([]);
+//     const [selectedItems, setSelectedItems] = useState([]);
+//     const [nominalInput, setNominalInput] = useState("");
+//     const [deliveryData, setDeliveryData] = useState([]);
+//     const router = useRouter(); // initialize router
+
+//     useEffect(() => {
+//         if (user && userProfile.role === "user") {
+//             router.push("/");
+//         }
+//     }, [user, userProfile]);
+
+//     useEffect(() => {
+//         const unsubscribePembelian = onSnapshot(collection(db, "userPembelian"), (snapshot) => {
+//             const pembelianData = snapshot.docs.map((doc) => ({
+//                 id: doc.id,
+//                 ...doc.data()
+//             }));
+//             setDataPembelian(pembelianData);
+//         });
+
+//         const unsubscribeRequestOrder = onSnapshot(collection(db, "userRequestOrder"), (snapshot) => {
+//             const requestOrderData = snapshot.docs.map((doc) => ({
+//                 id: doc.id,
+//                 ...doc.data()
+//             }));
+//             setDataRequestOrder(requestOrderData);
+//         });
+
+//         const unsubscribeRelasi = onSnapshot(collection(db, "userRelasi"), (snapshot) => {
+//             const relasiData = snapshot.docs.map((doc) => ({
+//                 id: doc.id,
+//                 ...doc.data()
+//             }));
+//             setDataRelasi(relasiData);
+//         });
+
+//         const q = query(collection(db, "userDelivery"), orderBy("createdAt", "desc"));
+//         const unsubscribeDelivery = onSnapshot(q, (snapshot) => {
+//             const deliveryData = snapshot.docs.map((doc) => ({
+//                 id: doc.id,
+//                 ...doc.data()
+//             }));
+//             setDeliveryData(deliveryData);
+//         });
+
+//         return () => {
+//             unsubscribePembelian();
+//             unsubscribeRequestOrder();
+//             unsubscribeRelasi();
+//             unsubscribeDelivery();
+//         };
+//     }, []);
+
+//     const handleCheckboxChange = (itemId, type) => {
+//         const selectedIndex = selectedItems.findIndex((item) => item.id === itemId && item.type === type);
+//         let newSelected = [];
+
+//         if (selectedIndex === -1) {
+//             newSelected = newSelected.concat(selectedItems, { id: itemId, type });
+//         } else if (selectedIndex === 0) {
+//             newSelected = newSelected.concat(selectedItems.slice(1));
+//         } else if (selectedIndex === selectedItems.length - 1) {
+//             newSelected = newSelected.concat(selectedItems.slice(0, -1));
+//         } else if (selectedIndex > 0) {
+//             newSelected = newSelected.concat(selectedItems.slice(0, selectedIndex), selectedItems.slice(selectedIndex + 1));
+//         }
+
+//         setSelectedItems(newSelected);
+//     };
+
+//     const handleProcess = (e) => {
+//         e.preventDefault();
+
+//         const nominal = selectedItems
+//             .filter(item => item.type === "relasi")
+//             .map(item => {
+//                 const selectedData = dataRelasi.find(data => data.id === item.id);
+//                 return selectedData ? selectedData.stock : Infinity;
+//             })
+//             .reduce((min, stock) => Math.min(min, stock), Infinity);
+
+//         setNominalInput(nominal === Infinity ? "" : nominal);
+
+//         const modal = document.getElementById("combinedForm");
+//         modal.showModal();
+//     };
+
+//     const handleSelesai = async () => {
+//         try {
+//             const requestOrderUpdates = selectedItems
+//                 .filter(item => item.type === "relasi")
+//                 .map(async (selectedItem) => {
+//                     const itemRef = doc(db, "userRelasi", selectedItem.id);
+//                     const itemDoc = await getDoc(itemRef);
+
+//                     if (itemDoc.exists()) {
+//                         const { status, deliveryDate } = itemDoc.data();
+
+//                         if (status === "dikirim") {
+//                             requestOrderUpdates.push(updateDoc(itemRef, { status: "diproses" }));
+//                         }
+//                         if (deliveryDate) {
+//                             const currentDate = new Date(deliveryDate);
+//                             currentDate.setMonth(currentDate.getMonth() + 1);
+//                             const newDeliveryDate = currentDate.toISOString().split("T")[0];
+//                             requestOrderUpdates.push(updateDoc(itemRef, { deliveryDate: newDeliveryDate }));
+//                         }
+//                     }
+//                 });
+
+//             await Promise.all(requestOrderUpdates);
+
+//             alert("Status berhasil diperbarui menjadi 'Diproses'!");
+//         } catch (error) {
+//             console.error("Error updating status:", error);
+//         }
+//     };
+
+//     const handleStockReduction = async () => {
+//         try {
+//             if (!nominalInput) {
+//                 alert("Masukkan nominal untuk pengurangan stock.");
+//                 return;
+//             }
+
+//             const nominal = parseInt(nominalInput);
+
+//             const pembelianUpdates = [];
+//             const requestOrderUpdates = [];
+//             const relasiUpdates = [];
+
+//             for (const selectedItem of selectedItems) {
+//                 const { id, type } = selectedItem;
+
+//                 if (type === "pembelian") {
+//                     const itemRef = doc(db, "userPembelian", id);
+//                     const itemDoc = await getDoc(itemRef);
+
+//                     if (itemDoc.exists()) {
+//                         const { stock } = itemDoc.data();
+
+//                         if (stock >= nominal) {
+//                             const newStock = stock - nominal;
+//                             pembelianUpdates.push(updateDoc(itemRef, { stock: newStock }));
+//                         } else {
+//                             alert(`Stock tidak mencukupi untuk item ${id}`);
+//                             return;
+//                         }
+//                     }
+//                 } else if (type === "relasi") {
+//                     const itemRef = doc(db, "userRelasi", id);
+//                     const itemDoc = await getDoc(itemRef);
+
+//                     if (itemDoc.exists()) {
+//                         const { status } = itemDoc.data();
+
+//                         if (status === "diproses") {
+//                             requestOrderUpdates.push(updateDoc(itemRef, { status: "dikirim" }));
+//                         }
+//                     }
+//                 }
+//             }
+
+//             // Perform stock reduction for pembelian items
+//             await Promise.all(pembelianUpdates);
+
+//             // Perform status update for request order items
+//             await Promise.all(requestOrderUpdates);
+
+//             // Perform delivery date update for relasi items
+//             await Promise.all(relasiUpdates);
+
+//             // Create invoice from selected items
+//             const invoiceData = selectedItems.map((selectedItem) => {
+//                 const { id, type } = selectedItem;
+//                 if (type === "pembelian") {
+//                     return dataPembelian.find((item) => item.id === id);
+//                 } else if (type === "relasi") {
+//                     return dataRelasi.find((item) => item.id === id);
+//                 }
+//                 return null;
+//             }).filter(item => item !== null);
+
+//             await addDoc(collection(db, "userDelivery"), {
+//                 items: invoiceData,
+//                 createdAt: new Date()
+//             });
+
+//             alert("Pengurangan stock berhasil dilakukan dan invoice berhasil dibuat!");
+//             document.getElementById("combinedForm").close();
+//             setSelectedItems([]);
+//             setNominalInput("");
+//         } catch (error) {
+//             console.error("Error reducing stock:", error);
+//         }
+//     };
+
+//     const handleDeliver = async (deliveryId) => {
+//         try {
+//             console.log(`Attempting to retrieve document with ID: ${deliveryId}`); // Debugging line
+//             const deliveryDoc = await getDoc(doc(db, "userDelivery", deliveryId)); // Retrieve from userDelivery
+//             console.log(`Document data:`, deliveryDoc.data()); // Debugging line
+    
+//             if (deliveryDoc.exists()) {
+//                 const deliveryItems = deliveryDoc.data().items;
+    
+//                 const updatePromises = deliveryItems.map(async (item) => {
+//                     console.log(`Processing item with ID: ${item.id}`); // Debugging line
+//                     const itemRef = doc(db, "userRelasi", item.id); // Get reference from userRelasi
+//                     const itemDoc = await getDoc(itemRef);
+    
+//                     if (itemDoc.exists()) {
+//                         const { statusDelivery } = itemDoc.data();
+//                         console.log(`Current statusDelivery for item ID ${item.id}: ${statusDelivery}`); // Debugging line
+    
+//                         if (statusDelivery === "siap dikirim") {
+//                             await updateDoc(itemRef, { statusDelivery: "menunggu dikirim" });
+    
+//                             // Update local state
+//                             setDataRelasi((prevData) =>
+//                                 prevData.map((dataItem) =>
+//                                     dataItem.id === item.id ? { ...dataItem, statusDelivery: "menunggu dikirim" } : dataItem
+//                                 )
+//                             );
+//                         }
+//                     } else {
+//                         console.error(`No userRelasi document found for ID: ${item.id}`);
+//                     }
+//                 });
+    
+//                 await Promise.all(updatePromises);
+    
+//                 alert("Status berhasil diperbarui menjadi 'menunggu dikirim'!");
+//             } else {
+//                 console.error(`No delivery document found for ID: ${deliveryId}`);
+//             }
+//         } catch (error) {
+//             console.error("Error updating delivery status:", error);
+//         }
+//     };
+
+//     const groupOrdersByField = (orders, field) => {
+//         const groupedOrders = {};
+//         orders.forEach((order) => {
+//             if (!groupedOrders[order[field]]) {
+//                 groupedOrders[order[field]] = [];
+//             }
+//             groupedOrders[order[field]].push(order);
+//         });
+//         return groupedOrders;
+//     };
+
+//     return (
+//         <div className="w-full mx-auto h-12 mt-10">
+//             <NavbarAdmin />
+
+//             {/* Section to display the created delivery */}
+//             <div className="w-[90%] mx-auto mt-10">
+//                 <h2 className="text-2xl font-semibold mb-5">Delivery Details</h2>
+//                 <div className="border p-4 rounded-md">
+//                     {deliveryData.length > 0 ? (
+//                         deliveryData.map((delivery, index) => (
+//                             <div key={index} className="mb-4">
+//                                 <h4 className="text-xl font-semibold">Invoice {index + 1}</h4>
+//                                 {delivery.items.map((item, idx) => (
+//                                     <div key={idx} className="mb-4">
+//                                         <p>Nama: {item.itemName || item.fullName}</p>
+//                                         <p>Kategori Kemasan: {item.packaging}</p>
+//                                         <p>Jumlah Kemasan: {item.stock}</p>
+//                                         <p>Status: {item.statusDelivery}</p>
+//                                         {item.image && <img src={item.image} alt="Payment Proof" className="h-52 w-auto mt-2 mx-auto" />}
+//                                         <p>Alamat: {item.address}</p>
+//                                         <p>Kontak: {item.contact}</p>
+//                                     </div>
+//                                 ))}
+//                                 <button className="btn btn-primary" onClick={() => handleDeliver(delivery.id)}>
+//                                     Deliver
+//                                 </button>
+//                             </div>
+//                         ))
+//                     ) : (
+//                         <p>No delivery data to display.</p>
+//                     )}
+//                 </div>
+//             </div>
+
+//             <Footer />
+//         </div>
+//     );
+// };
+
+// export default Purchase;
+
+
 "use client";
-import React, { useEffect, useState } from "react";
-import { collection, doc, onSnapshot, updateDoc, getDoc, addDoc, query, orderBy } from "firebase/firestore";
-import { db } from "@/firebase/firebase";
-import useAuth from "@/app/hooks/useAuth";
-import NavbarGudang from "@/components/NavbarGudang";
-import Footer from "@/components/Footer";
-import { useRouter } from "next/navigation"; // import useRouter from next/router
+import { useEffect, useState } from "react";
+import { auth, db } from "@/firebase/firebase";
+import { doc, getDoc, addDoc, collection, query, where, getDocs, updateDoc } from "firebase/firestore";
+import { useRouter } from "next/navigation"; 
 import NavbarAdmin from "@/components/NavbarAdmin";
+import { useAuthState } from "react-firebase-hooks/auth";
+import CardItem7 from "@/components/CardItem7";
+import CardItem8 from "@/components/CardItem8";
 
-const Purchase = () => {
-    const { user, userProfile } = useAuth();
-    const [dataPembelian, setDataPembelian] = useState([]);
-    const [dataRequestOrder, setDataRequestOrder] = useState([]);
-    const [dataRelasi, setDataRelasi] = useState([]);
-    const [selectedItems, setSelectedItems] = useState([]);
-    const [nominalInput, setNominalInput] = useState("");
-    const [deliveryData, setDeliveryData] = useState([]);
-    const router = useRouter(); // initialize router
+const UserProfile = () => {
+  const router = useRouter();
+  const [user, loading] = useAuthState(auth);
+  const [formData, setFormData] = useState({
+    fullName: "",
+    contact: "",
+    address: "",
+    packaging: "",
+    namaProduct: "",
+    stock: "",
+    deliveryDate: "",
+    deadlineDate:"",
+  });
+  const [errors, setErrors] = useState({});
+  const [toastMessage, setToastMessage] = useState(null);
+  const [orders, setOrders] = useState([]); 
+  const [editOrderId, setEditOrderId] = useState(null); // Add state to manage edit mode
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
 
-    useEffect(() => {
-        if (user && userProfile.role === "user") {
-            router.push("/");
+  useEffect(() => {
+    const fetchUserData = async () => {
+      if (user) {
+        const docRef = doc(db, "users", user.uid);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          setFormData((prevFormData) => ({
+            ...prevFormData,
+            fullName: data.name || "",
+            contact: data.contact || "",
+            address: data.address || "",
+          }));
         }
-    }, [user, userProfile]);
+      }
+    };
+    fetchUserData();
+  }, [user]);
 
-    useEffect(() => {
-        const unsubscribePembelian = onSnapshot(collection(db, "userPembelian"), (snapshot) => {
-            const pembelianData = snapshot.docs.map((doc) => ({
-                id: doc.id,
-                ...doc.data()
-            }));
-            setDataPembelian(pembelianData);
-        });
+  useEffect(() => {
+    const fetchOrders = async () => {
+      if (user) {
+        const q = query(collection(db, "userRelasi"), where("userId", "==", user.uid));
+        const querySnapshot = await getDocs(q);
+        const ordersData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setOrders(ordersData);
+      }
+    };
+    fetchOrders();
+  }, [user]);
 
-        const unsubscribeRequestOrder = onSnapshot(collection(db, "userRequestOrder"), (snapshot) => {
-            const requestOrderData = snapshot.docs.map((doc) => ({
-                id: doc.id,
-                ...doc.data()
-            }));
-            setDataRequestOrder(requestOrderData);
-        });
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prevFormData) => ({
+      ...prevFormData,
+      [name]: value,
+    }));
+  };
 
-        const unsubscribeRelasi = onSnapshot(collection(db, "userRelasi"), (snapshot) => {
-            const relasiData = snapshot.docs.map((doc) => ({
-                id: doc.id,
-                ...doc.data()
-            }));
-            setDataRelasi(relasiData);
-        });
+  const calculatePrice = () => {
+    const { packaging, namaProduct, stock } = formData;
+    let unitPrice = 0;
 
-        const q = query(collection(db, "userDelivery"), orderBy("createdAt", "desc"));
-        const unsubscribeDelivery = onSnapshot(q, (snapshot) => {
-            const deliveryData = snapshot.docs.map((doc) => ({
-                id: doc.id,
-                ...doc.data()
-            }));
-            setDeliveryData(deliveryData);
-        });
+    if (namaProduct === "Karila Pandan Wangi Premium") {
+      switch (packaging) {
+        case "3 Kg":
+          unitPrice = 49500;
+          break;
+        case "5 Kg":
+          unitPrice = 82500;
+          break;
+        case "10 Kg":
+          unitPrice = 165000;
+          break;
+        case "20 Kg":
+          unitPrice = 330000;
+          break;
+        case "25 Kg":
+          unitPrice = 412500;
+          break;
+        default:
+          unitPrice = 0;
+          break;
+      }
+    }
 
-        return () => {
-            unsubscribePembelian();
-            unsubscribeRequestOrder();
-            unsubscribeRelasi();
-            unsubscribeDelivery();
-        };
-    }, []);
+    if (namaProduct === "Karila Ramos") {
+      switch (packaging) {
+        case "3 Kg":
+          unitPrice = 43500;
+          break;
+        case "5 Kg":
+          unitPrice = 72500;
+          break;
+        case "10 Kg":
+          unitPrice = 145000;
+          break;
+        case "20 Kg":
+          unitPrice = 290000;
+          break;
+        case "25 Kg":
+          unitPrice = 362500;
+          break;
+        default:
+          unitPrice = 0;
+          break;
+      }
+    }
+    return unitPrice * (parseInt(stock) || 0);
+  };
 
-    const handleCheckboxChange = (itemId, type) => {
-        const selectedIndex = selectedItems.findIndex((item) => item.id === itemId && item.type === type);
-        let newSelected = [];
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    let newErrors = {};
 
-        if (selectedIndex === -1) {
-            newSelected = newSelected.concat(selectedItems, { id: itemId, type });
-        } else if (selectedIndex === 0) {
-            newSelected = newSelected.concat(selectedItems.slice(1));
-        } else if (selectedIndex === selectedItems.length - 1) {
-            newSelected = newSelected.concat(selectedItems.slice(0, -1));
-        } else if (selectedIndex > 0) {
-            newSelected = newSelected.concat(selectedItems.slice(0, selectedIndex), selectedItems.slice(selectedIndex + 1));
+    if (!formData.fullName) newErrors.fullName = "Full name is required";
+    if (!formData.contact) newErrors.contact = "Contact is required";
+    if (!formData.address) newErrors.address = "Address is required";
+    if (!formData.packaging) newErrors.packaging = "Packaging is required";
+    if (!formData.namaProduct) newErrors.namaProduct = "Product is required";
+    if (!formData.stock) newErrors.stock = "Stock is required";
+    if (!formData.deliveryDate) newErrors.deliveryDate = "Delivery date is required";
+    if (!formData.deadlineDate) newErrors.deadlineDate = "Dadline date is required";
+
+    setErrors(newErrors);
+
+    if (Object.keys(newErrors).length === 0 && user) {
+      const totalHarga = calculatePrice();
+
+      try {
+        if (editOrderId) {
+          // Update existing order
+          const docRef = doc(db, "userRelasi", editOrderId);
+          await updateDoc(docRef, {
+            userId: user.uid,
+            fullName: formData.fullName,
+            contact: formData.contact,
+            address: formData.address,
+            packaging: formData.packaging,
+            namaProduct: formData.namaProduct,
+            stock: formData.stock,
+            deliveryDate: formData.deliveryDate,
+            deadlineDate:formData.deadlineDate,
+            totalHarga: totalHarga,
+            statusDelivery: "menunggu dikirim", // update statusDelivery
+            status: "menunggu dikirim", // update status
+            timestamp: new Date(),
+          });
+          setToastMessage("Order updated successfully");
+        } else {
+          // Add new order
+          await addDoc(collection(db, "userRelasi"), {
+            userId: user.uid,
+            fullName: formData.fullName,
+            contact: formData.contact,
+            address: formData.address,
+            packaging: formData.packaging,
+            namaProduct: formData.namaProduct,
+            stock: formData.stock,
+            deliveryDate: formData.deliveryDate,
+            deadlineDate: formData.deadlineDate,
+            totalHarga: totalHarga,
+            status: "barang ready",
+            timestamp: new Date(),
+          });
+          setToastMessage("Order requested successfully");
         }
 
-        setSelectedItems(newSelected);
-    };
-
-    const handleProcess = (e) => {
-        e.preventDefault();
-
-        const nominal = selectedItems
-            .filter(item => item.type === "relasi")
-            .map(item => {
-                const selectedData = dataRelasi.find(data => data.id === item.id);
-                return selectedData ? selectedData.stock : Infinity;
-            })
-            .reduce((min, stock) => Math.min(min, stock), Infinity);
-
-        setNominalInput(nominal === Infinity ? "" : nominal);
-
-        const modal = document.getElementById("combinedForm");
-        modal.showModal();
-    };
-
-    const handleSelesai = async () => {
-        try {
-            const requestOrderUpdates = selectedItems
-                .filter(item => item.type === "relasi")
-                .map(async (selectedItem) => {
-                    const itemRef = doc(db, "userRelasi", selectedItem.id);
-                    const itemDoc = await getDoc(itemRef);
-
-                    if (itemDoc.exists()) {
-                        const { status, deliveryDate } = itemDoc.data();
-
-                        if (status === "dikirim") {
-                            requestOrderUpdates.push(updateDoc(itemRef, { status: "diproses" }));
-                        }
-                        if (deliveryDate) {
-                            const currentDate = new Date(deliveryDate);
-                            currentDate.setMonth(currentDate.getMonth() + 1);
-                            const newDeliveryDate = currentDate.toISOString().split("T")[0];
-                            requestOrderUpdates.push(updateDoc(itemRef, { deliveryDate: newDeliveryDate }));
-                        }
-                    }
-                });
-
-            await Promise.all(requestOrderUpdates);
-
-            alert("Status berhasil diperbarui menjadi 'Diproses'!");
-        } catch (error) {
-            console.error("Error updating status:", error);
-        }
-    };
-
-    const handleStockReduction = async () => {
-        try {
-            if (!nominalInput) {
-                alert("Masukkan nominal untuk pengurangan stock.");
-                return;
-            }
-
-            const nominal = parseInt(nominalInput);
-
-            const pembelianUpdates = [];
-            const requestOrderUpdates = [];
-            const relasiUpdates = [];
-
-            for (const selectedItem of selectedItems) {
-                const { id, type } = selectedItem;
-
-                if (type === "pembelian") {
-                    const itemRef = doc(db, "userPembelian", id);
-                    const itemDoc = await getDoc(itemRef);
-
-                    if (itemDoc.exists()) {
-                        const { stock } = itemDoc.data();
-
-                        if (stock >= nominal) {
-                            const newStock = stock - nominal;
-                            pembelianUpdates.push(updateDoc(itemRef, { stock: newStock }));
-                        } else {
-                            alert(`Stock tidak mencukupi untuk item ${id}`);
-                            return;
-                        }
-                    }
-                } else if (type === "relasi") {
-                    const itemRef = doc(db, "userRelasi", id);
-                    const itemDoc = await getDoc(itemRef);
-
-                    if (itemDoc.exists()) {
-                        const { status } = itemDoc.data();
-
-                        if (status === "diproses") {
-                            requestOrderUpdates.push(updateDoc(itemRef, { status: "dikirim" }));
-                        }
-                    }
-                }
-            }
-
-            // Perform stock reduction for pembelian items
-            await Promise.all(pembelianUpdates);
-
-            // Perform status update for request order items
-            await Promise.all(requestOrderUpdates);
-
-            // Perform delivery date update for relasi items
-            await Promise.all(relasiUpdates);
-
-            // Create invoice from selected items
-            const invoiceData = selectedItems.map((selectedItem) => {
-                const { id, type } = selectedItem;
-                if (type === "pembelian") {
-                    return dataPembelian.find((item) => item.id === id);
-                } else if (type === "relasi") {
-                    return dataRelasi.find((item) => item.id === id);
-                }
-                return null;
-            }).filter(item => item !== null);
-
-            await addDoc(collection(db, "userDelivery"), {
-                items: invoiceData,
-                createdAt: new Date()
-            });
-
-            alert("Pengurangan stock berhasil dilakukan dan invoice berhasil dibuat!");
-            document.getElementById("combinedForm").close();
-            setSelectedItems([]);
-            setNominalInput("");
-        } catch (error) {
-            console.error("Error reducing stock:", error);
-        }
-    };
-
-    const handleDeliver = async (deliveryId) => {
-        try {
-            const deliveryDoc = await getDoc(doc(db, "userDelivery", deliveryId));
-            if (deliveryDoc.exists()) {
-                const deliveryItems = deliveryDoc.data().items;
-
-                const updatedItems = deliveryItems.map((item) => {
-                    if (item.statusDelivery === "siap dikirim") {
-                        return { ...item, statusDelivery: "dikirim" };
-                    }
-                    return item;
-                });
-
-                await updateDoc(doc(db, "userDelivery", deliveryId), { items: updatedItems });
-                alert("Status berhasil diperbarui menjadi 'dikirim'!");
-            } else {
-                console.error(`No delivery document found for ID: ${deliveryId}`);
-            }
-        } catch (error) {
-            console.error("Error updating delivery status:", error);
-        }
-    };
-
-    const groupOrdersByField = (orders, field) => {
-        const groupedOrders = {};
-        orders.forEach((order) => {
-            if (!groupedOrders[order[field]]) {
-                groupedOrders[order[field]] = [];
-            }
-            groupedOrders[order[field]].push(order);
+        setFormData({
+          fullName: "",
+          contact: "",
+          address: "",
+          packaging: "",
+          namaProduct: "",
+          stock: "",
+          deliveryDate: "",
+          deadlineDate:"",
         });
-        return groupedOrders;
-    };
+        setEditOrderId(null);
+        setIsEditModalOpen(false);
+      } catch (error) {
+        console.error("Error adding or updating document: ", error);
+      }
+    }
+  };
 
-    return (
-        <div className="w-full mx-auto h-12 mt-10">
-            <NavbarAdmin />
+  const handleEdit = async (order) => {
+    const docRef = doc(db, "userRelasi", order.id);
+    await updateDoc(docRef, {
+      statusDelivery: "menunggu dikirim",
+      status: "menunggu dikirim"
+    });
+    setToastMessage("Order status updated successfully");
+  };
 
-            {/* Section to display the created delivery */}
-            <div className="w-[90%] mx-auto mt-10">
-                <h2 className="text-2xl font-semibold mb-5">Delivery Details</h2>
-                <div className="border p-4 rounded-md">
-                    {deliveryData.length > 0 ? (
-                        deliveryData.map((delivery, index) => (
-                            <div key={index} className="mb-4">
-                                <h4 className="text-xl font-semibold">Invoice {index + 1}</h4>
-                                {delivery.items.map((item, idx) => (
-                                    <div key={idx} className="mb-4">
-                                        <p>Nama: {item.itemName || item.fullName}</p>
-                                        <p>Kategori Kemasan: {item.packaging}</p>
-                                        <p>Jumlah Kemasan: {item.stock}</p>
-                                        <p>Status: {item.statusDelivery}</p>
-                                        {item.image && <img src={item.image} alt="Payment Proof" className="h-52 w-auto mt-2 mx-auto" />}
-                                        <p>Alamat: {item.address}</p>
-                                        <p>Kontak: {item.contact}</p>
-                                    </div>
-                                ))}
-                                <button className="btn btn-primary" onClick={() => handleDeliver(delivery.id)}>
-                                    Deliver
-                                </button>
-                            </div>
-                        ))
-                    ) : (
-                        <p>No delivery data to display.</p>
-                    )}
+  const filterOrdersByProductName = (productName) => {
+    return orders.filter(order => order.namaProduct === productName);
+  };
+
+  const groupOrdersByFullName = (orders) => {
+    const groupedOrders = {};
+    orders.forEach((order) => {
+      if (!groupedOrders[order.fullName]) {
+        groupedOrders[order.fullName] = [];
+      }
+      groupedOrders[order.fullName].push(order);
+    });
+    return groupedOrders;
+  };
+
+  return (
+    <div className="mt-10">
+      <NavbarAdmin />
+      <div className="mt-53 px-10 my-16">
+        <h2 className="text-2xl font-semibold mb-4 text-center">Order List</h2>
+        {["Karila Pandan Wangi Premium", "Karila Ramos"].map((productName) => (
+          <div key={productName}>
+            <h3 className="text-xl font-semibold mb-2">{productName}</h3>
+            {Object.entries(groupOrdersByFullName(filterOrdersByProductName(productName))).map(([fullName, orders]) => (
+              <div key={fullName} className="mb-6">
+                <h4 className="text-lg font-semibold mb-2">{fullName}</h4>
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {orders.map((order) => (
+                    <CardItem8
+                      key={order.id}
+                      order={order}
+                      handleEdit={handleEdit}
+                    />
+                  ))}
                 </div>
-            </div>
-
-            <Footer />
-        </div>
-    );
+              </div>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
 };
 
-export default Purchase;
+export default UserProfile;
 
 
 

@@ -276,6 +276,8 @@ const User = () => {
                   >
                     <option>user</option>
                     <option>admin</option>
+                    <option>gudang</option>
+                    <option>delivery</option>
                   </select>
                 </div>
                 <div className="flex flex-col gap-3 mb-3">

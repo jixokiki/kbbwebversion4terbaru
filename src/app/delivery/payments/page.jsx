@@ -3698,24 +3698,133 @@
 
 
 
+// "use client";
+// import React, { useEffect, useState } from "react";
+// import { collection, doc, onSnapshot, updateDoc, getDoc } from "firebase/firestore";
+// import { db } from "@/firebase/firebase";
+// import useAuth from "@/app/hooks/useAuth";
+// import NavbarDelivery from "@/components/NavbarDelivery";
+// import Footer from "@/components/Footer";
+// import { useRouter } from "next/navigation";
+// import CardItem9 from "@/components/CardItem9";
+
+// const Purchase = () => {
+//     const { user, userProfile } = useAuth();
+//     const [dataRelasi, setDataRelasi] = useState([]);
+//     const [toastMessage, setToastMessage] = useState(null);
+//     const router = useRouter();
+
+//     useEffect(() => {
+//         if (user && userProfile.role === "admin") {
+//             router.push("/admin");
+//         }
+//     }, [user, userProfile]);
+
+//     useEffect(() => {
+//         const unsubscribeRelasi = onSnapshot(collection(db, "userRelasi"), (snapshot) => {
+//             const relasiData = snapshot.docs.map((doc) => ({
+//                 id: doc.id,
+//                 ...doc.data()
+//             }));
+//             setDataRelasi(relasiData);
+//         });
+
+//         return () => {
+//             unsubscribeRelasi();
+//         };
+//     }, []);
+
+//     const handleProsesDelivery = async (order) => {
+//         try {
+//             if (!order.id) {
+//                 throw new Error("Order ID is missing");
+//             }
+
+//             const docRef = doc(db, "userRelasi", order.id);
+//             const deliveryDoc = await getDoc(docRef);
+
+//             if (deliveryDoc.exists()) {
+//                 const deliveryData = deliveryDoc.data();
+
+//                 await updateDoc(docRef, {
+//                     statusDelivery: "dikirim",
+//                     status: "dikirim",
+//                 });
+//                 setToastMessage("Status berhasil diperbarui menjadi 'menunggu dikirim'!");
+//             } else {
+//                 console.error(`No document found in userRelasi for ID: ${order.id}`);
+//             }
+//         } catch (error) {
+//             console.error("Error updating delivery status:", error);
+//         }
+//     };
+
+//     const groupOrdersByField = (orders, field) => {
+//         const groupedOrders = {};
+//         orders.forEach((order) => {
+//             if (!groupedOrders[order[field]]) {
+//                 groupedOrders[order[field]] = [];
+//             }
+//             groupedOrders[order[field]].push(order);
+//         });
+//         return groupedOrders;
+//     };
+
+//     return (
+//         <div className="w-full mx-auto h-12 mt-10">
+//             <NavbarDelivery />
+
+//             <div className="mt-53 px-10 my-16">
+//                 <h2 className="text-2xl font-semibold mb-4 text-center">Order List</h2>
+//                 {["Karila Pandan Wangi Premium", "Karila Ramos"].map((productName) => (
+//                     <div key={productName}>
+//                         <h3 className="text-xl font-semibold mb-2">{productName}</h3>
+//                         {Object.entries(groupOrdersByField(dataRelasi.filter(order => order.namaProduct === productName), 'fullName')).map(([fullName, orders]) => (
+//                             <div key={fullName} className="mb-6">
+//                                 <h4 className="text-lg font-semibold mb-2">{fullName}</h4>
+//                                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+//                                     {orders.map((order) => (
+//                                         <CardItem9
+//                                             key={order.id}
+//                                             order={order}
+//                                             handleEdit={handleProsesDelivery}
+//                                         />
+//                                     ))}
+//                                 </div>
+//                             </div>
+//                         ))}
+//                     </div>
+//                 ))}
+//             </div>
+
+//             {toastMessage && (
+//                 <div className="fixed bottom-4 right-4 bg-green-500 text-white p-4 rounded">
+//                     {toastMessage}
+//                 </div>
+//             )}
+
+//             <Footer />
+//         </div>
+//     );
+// };
+
+// export default Purchase;
+
+
 "use client";
 import React, { useEffect, useState } from "react";
-import { collection, doc, onSnapshot, updateDoc, getDoc, addDoc, query, orderBy } from "firebase/firestore";
+import { collection, doc, onSnapshot, updateDoc, getDoc } from "firebase/firestore";
 import { db } from "@/firebase/firebase";
 import useAuth from "@/app/hooks/useAuth";
-import NavbarGudang from "@/components/NavbarGudang";
+import NavbarDelivery from "@/components/NavbarDelivery";
 import Footer from "@/components/Footer";
 import { useRouter } from "next/navigation";
-import NavbarDelivery from "@/components/NavbarDelivery";
+import CardItem9 from "@/components/CardItem9";
 
 const Purchase = () => {
     const { user, userProfile } = useAuth();
-    const [dataPembelian, setDataPembelian] = useState([]);
-    const [dataRequestOrder, setDataRequestOrder] = useState([]);
     const [dataRelasi, setDataRelasi] = useState([]);
-    const [selectedItems, setSelectedItems] = useState([]);
-    const [nominalInput, setNominalInput] = useState("");
-    const [deliveryData, setDeliveryData] = useState([]);
+    const [toastMessage, setToastMessage] = useState(null);
     const router = useRouter();
 
     useEffect(() => {
@@ -3725,22 +3834,6 @@ const Purchase = () => {
     }, [user, userProfile]);
 
     useEffect(() => {
-        const unsubscribePembelian = onSnapshot(collection(db, "userPembelian"), (snapshot) => {
-            const pembelianData = snapshot.docs.map((doc) => ({
-                id: doc.id,
-                ...doc.data()
-            }));
-            setDataPembelian(pembelianData);
-        });
-
-        const unsubscribeRequestOrder = onSnapshot(collection(db, "userRequestOrder"), (snapshot) => {
-            const requestOrderData = snapshot.docs.map((doc) => ({
-                id: doc.id,
-                ...doc.data()
-            }));
-            setDataRequestOrder(requestOrderData);
-        });
-
         const unsubscribeRelasi = onSnapshot(collection(db, "userRelasi"), (snapshot) => {
             const relasiData = snapshot.docs.map((doc) => ({
                 id: doc.id,
@@ -3749,195 +3842,91 @@ const Purchase = () => {
             setDataRelasi(relasiData);
         });
 
-        const q = query(collection(db, "userDelivery"), orderBy("createdAt", "desc"));
-        const unsubscribeDelivery = onSnapshot(q, (snapshot) => {
-            const deliveryData = snapshot.docs.map((doc) => ({
-                id: doc.id,
-                ...doc.data()
-            }));
-            setDeliveryData(deliveryData);
-        });
-
         return () => {
-            unsubscribePembelian();
-            unsubscribeRequestOrder();
             unsubscribeRelasi();
-            unsubscribeDelivery();
         };
     }, []);
 
-    const handleCheckboxChange = (itemId, type) => {
-        const selectedIndex = selectedItems.findIndex((item) => item.id === itemId && item.type === type);
-        let newSelected = [];
-
-        if (selectedIndex === -1) {
-            newSelected = newSelected.concat(selectedItems, { id: itemId, type });
-        } else if (selectedIndex === 0) {
-            newSelected = newSelected.concat(selectedItems.slice(1));
-        } else if (selectedIndex === selectedItems.length - 1) {
-            newSelected = newSelected.concat(selectedItems.slice(0, -1));
-        } else if (selectedIndex > 0) {
-            newSelected = newSelected.concat(selectedItems.slice(0, selectedIndex), selectedItems.slice(selectedIndex + 1));
-        }
-
-        setSelectedItems(newSelected);
-    };
-
-    const handleProcess = (e) => {
-        e.preventDefault();
-
-        const nominal = selectedItems
-            .filter(item => item.type === "relasi")
-            .map(item => {
-                const selectedData = dataRelasi.find(data => data.id === item.id);
-                return selectedData ? selectedData.stock : Infinity;
-            })
-            .reduce((min, stock) => Math.min(min, stock), Infinity);
-
-        setNominalInput(nominal === Infinity ? "" : nominal);
-
-        const modal = document.getElementById("combinedForm");
-        modal.showModal();
-    };
-
-    const handleSelesai = async () => {
+    const handleProsesDelivery = async (order) => {
         try {
-            const requestOrderUpdates = selectedItems
-                .filter(item => item.type === "relasi")
-                .map(async (selectedItem) => {
-                    const itemRef = doc(db, "userRelasi", selectedItem.id);
-                    const itemDoc = await getDoc(itemRef);
-
-                    if (itemDoc.exists()) {
-                        const { statusDelivery, deliveryDate } = itemDoc.data();
-
-                        if (statusDelivery === "siap dikirim") {
-                            requestOrderUpdates.push(updateDoc(itemRef, { statusDelivery: "diproses" }));
-                        }
-                        if (deliveryDate) {
-                            const currentDate = new Date(deliveryDate);
-                            currentDate.setMonth(currentDate.getMonth() + 1);
-                            const newDeliveryDate = currentDate.toISOString().split("T")[0];
-                            requestOrderUpdates.push(updateDoc(itemRef, { deliveryDate: newDeliveryDate }));
-                        }
-                    }
-                });
-
-            await Promise.all(requestOrderUpdates);
-
-            alert("Status berhasil diperbarui menjadi 'Diproses'!");
-        } catch (error) {
-            console.error("Error updating status:", error);
-        }
-    };
-
-    const handleStockReduction = async () => {
-        try {
-            if (!nominalInput) {
-                alert("Masukkan nominal untuk pengurangan stock.");
-                return;
+            if (!order.id) {
+                throw new Error("Order ID is missing");
             }
 
-            const nominal = parseInt(nominalInput);
-
-            const pembelianUpdates = [];
-            const requestOrderUpdates = [];
-            const relasiUpdates = [];
-
-            for (const selectedItem of selectedItems) {
-                const { id, type } = selectedItem;
-
-                if (type === "pembelian") {
-                    const itemRef = doc(db, "userPembelian", id);
-                    const itemDoc = await getDoc(itemRef);
-
-                    if (itemDoc.exists()) {
-                        const { stock } = itemDoc.data();
-
-                        if (stock >= nominal) {
-                            const newStock = stock - nominal;
-                            pembelianUpdates.push(updateDoc(itemRef, { stock: newStock, statusDelivery: "siap dikirim" }));
-                        } else {
-                            alert(`Stock tidak mencukupi untuk item ${id}`);
-                            return;
-                        }
-                    } else {
-                        console.error(`No document found in userPembelian for ID: ${id}`);
-                    }
-                } else if (type === "relasi") {
-                    const itemRef = doc(db, "userRelasi", id);
-                    const itemDoc = await getDoc(itemRef);
-
-                    if (itemDoc.exists()) {
-                        const { status } = itemDoc.data();
-
-                        if (status === "diproses") {
-                            requestOrderUpdates.push(updateDoc(itemRef, { status: "siap dikirim", statusDelivery: "siap dikirim" }));
-                        }
-                    } else {
-                        console.error(`No document found in userRelasi for ID: ${id}`);
-                    }
-                }
-            }
-
-            // Perform stock reduction for pembelian items
-            await Promise.all(pembelianUpdates);
-
-            // Perform status update for request order items
-            await Promise.all(requestOrderUpdates);
-
-            // Create invoice from selected items
-            const invoiceData = selectedItems.map((selectedItem) => {
-                const { id, type } = selectedItem;
-                if (type === "pembelian") {
-                    const item = dataPembelian.find((item) => item.id === id);
-                    return { ...item, statusDelivery: "siap dikirim" }; // Adding statusDelivery to each item
-                } else if (type === "relasi") {
-                    const item = dataRelasi.find((item) => item.id === id);
-                    return { ...item, statusDelivery: "siap dikirim" }; // Adding statusDelivery to each item
-                }
-                return null;
-            }).filter(item => item !== null);
-
-            await addDoc(collection(db, "userDelivery"), {
-                items: invoiceData,
-                createdAt: new Date(),
-                statusDelivery: "siap dikirim"
-            });
-
-            alert("Pengurangan stock berhasil dilakukan dan invoice berhasil dibuat!");
-            document.getElementById("combinedForm").close();
-            setSelectedItems([]);
-            setNominalInput("");
-        } catch (error) {
-            console.error("Error reducing stock:", error);
-        }
-    };
-
-    const handleProsesDelivery = async (deliveryId) => {
-        try {
-            const deliveryRef = doc(db, "userDelivery", deliveryId);
-            const deliveryDoc = await getDoc(deliveryRef);
+            const docRef = doc(db, "userRelasi", order.id);
+            const deliveryDoc = await getDoc(docRef);
 
             if (deliveryDoc.exists()) {
                 const deliveryData = deliveryDoc.data();
-                const updatedItems = deliveryData.items.map(item => {
-                    const currentDate = new Date(item.deliveryDate);
-                    currentDate.setMonth(currentDate.getMonth() + 1);
-                    const newDeliveryDate = currentDate.toISOString().split("T")[0];
-                    return { ...item, deliveryDate: newDeliveryDate };
-                });
 
-                await updateDoc(deliveryRef, { items: updatedItems });
-                alert("Tanggal pengiriman berhasil diperbarui!");
+                await updateDoc(docRef, {
+                    statusDelivery: "dikirim",
+                    status: "dikirim",
+                });
+                setToastMessage("Status berhasil diperbarui menjadi 'menunggu dikirim'!");
             } else {
-                console.error(`No document found in userDelivery for ID: ${deliveryId}`);
+                console.error(`No document found in userRelasi for ID: ${order.id}`);
             }
         } catch (error) {
-            console.error("Error updating delivery date:", error);
+            console.error("Error updating delivery status:", error);
         }
     };
 
+    // const handleProsesDelivery2 = async (order) => {
+    //     try {
+    //         if (!order.id) {
+    //             throw new Error("Order ID is missing");
+    //         }
+
+    //         const docRef = doc(db, "userRelasi", order.id);
+    //         const deliveryDoc = await getDoc(docRef);
+
+    //         if (deliveryDoc.exists()) {
+    //             const deliveryData = deliveryDoc.data();
+
+    //             await updateDoc(docRef, {
+    //                 statusDelivery: "diproses",
+    //                 status: "diproses",
+    //             });
+    //             setToastMessage("Status berhasil diperbarui menjadi 'menunggu dikirim'!");
+    //         } else {
+    //             console.error(`No document found in userRelasi for ID: ${order.id}`);
+    //         }
+    //     } catch (error) {
+    //         console.error("Error updating delivery status:", error);
+    //     }
+    // };
+
+
+    const handleProsesDelivery2 = async (order) => {
+        try {
+            if (!order.id) {
+                throw new Error("Order ID is missing");
+            }
+
+            const docRef = doc(db, "userRelasi", order.id);
+            const deliveryDoc = await getDoc(docRef);
+
+            if (deliveryDoc.exists()) {
+                const deliveryData = deliveryDoc.data();
+                const currentDate = new Date(deliveryData.deliveryDate);
+                currentDate.setMonth(currentDate.getMonth() + 1);
+                const newDeliveryDate = currentDate.toISOString().split("T")[0];
+
+                await updateDoc(docRef, {
+                    statusDelivery: "diproses",
+                    status: "diproses",
+                    deliveryDate: newDeliveryDate
+                });
+                setToastMessage("Status berhasil diperbarui menjadi 'diproses' dan tanggal pengiriman diperbarui!");
+            } else {
+                console.error(`No document found in userRelasi for ID: ${order.id}`);
+            }
+        } catch (error) {
+            console.error("Error updating delivery status:", error);
+        }
+    };
+    
     const groupOrdersByField = (orders, field) => {
         const groupedOrders = {};
         orders.forEach((order) => {
@@ -3953,38 +3942,35 @@ const Purchase = () => {
         <div className="w-full mx-auto h-12 mt-10">
             <NavbarDelivery />
 
-            {/* Section to display the created delivery */}
-            <div className="w-[90%] mx-auto mt-10">
-                <h2 className="text-2xl font-semibold mb-5">Delivery Details</h2>
-                <div className="border p-4 rounded-md">
-                    {deliveryData.length > 0 ? (
-                        deliveryData.map((delivery, index) => (
-                            <div key={index} className="mb-4">
-                                <h4 className="text-xl font-semibold">Invoice {index + 1}</h4>
-                                {delivery.items.map((item, idx) => (
-                                    <div key={idx} className="mb-4">
-                                        <p>Nama: {item.itemName || item.fullName}</p>
-                                        <p>Kategori Kemasan: {item.packaging}</p>
-                                        <p>Jumlah Kemasan: {item.stock}</p>
-                                        <p>Status: {item.statusDelivery}</p>
-                                        {item.image && <img src={item.image} alt="Payment Proof" className="h-52 w-auto mt-2 mx-auto" />}
-                                        <p>Alamat: {item.address}</p>
-                                        <p>Kontak: {item.contact}</p>
-                                        <p>Tanggal Pengiriman: {item.deliveryDate}</p>
-                                    </div>
-                                ))}
-                                {delivery.items.some(item => item.statusDelivery === "dikirim") && (
-                                    <button className="btn btn-primary" onClick={() => handleProsesDelivery(delivery.id)}>
-                                        Proses
-                                    </button>
-                                )}
+            <div className="mt-53 px-10 my-16">
+                <h2 className="text-2xl font-semibold mb-4 text-center">Order List</h2>
+                {["Karila Pandan Wangi Premium", "Karila Ramos"].map((productName) => (
+                    <div key={productName}>
+                        <h3 className="text-xl font-semibold mb-2">{productName}</h3>
+                        {Object.entries(groupOrdersByField(dataRelasi.filter(order => order.namaProduct === productName), 'fullName')).map(([fullName, orders]) => (
+                            <div key={fullName} className="mb-6">
+                                <h4 className="text-lg font-semibold mb-2">{fullName}</h4>
+                                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                                    {orders.map((order) => (
+                                        <CardItem9
+                                            key={order.id}
+                                            order={order}
+                                            handleEdit={handleProsesDelivery}
+                                            handleEdit2={handleProsesDelivery2}
+                                        />
+                                    ))}
+                                </div>
                             </div>
-                        ))
-                    ) : (
-                        <p>No delivery data to display.</p>
-                    )}
-                </div>
+                        ))}
+                    </div>
+                ))}
             </div>
+
+            {toastMessage && (
+                <div className="fixed bottom-4 right-4 bg-green-500 text-white p-4 rounded">
+                    {toastMessage}
+                </div>
+            )}
 
             <Footer />
         </div>
@@ -3992,6 +3978,11 @@ const Purchase = () => {
 };
 
 export default Purchase;
+
+
+
+
+
 
 
 

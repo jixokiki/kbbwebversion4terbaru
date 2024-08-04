@@ -43,8 +43,9 @@ const CardItem7 = ({
         <h3 className="text-lg font-semibold">{order.fullName}</h3>
         <p className="text-gray-600 mb-2">Kemasan: {order.packaging}</p>
         {/* <p className="text-gray-600 mb-2">Harga: Rp. {order.totalHarga}</p> */}
-        <p className="text-gray-600 mb-2">Status: {order.status}</p>
+        <p className="text-gray-600 mb-2">Status: {order.statusDelivery}</p>
         <p className="text-gray-600 mb-2">Tanggal Jadwal Pengiriman: {order.deliveryDate}</p>
+        <p className="text-gray-600 mb-2">Akhir Kerjasama: {order.deadlineDate}</p>
         <p className="text-gray-600 mb-2">Stok: {order.stock}</p>
         <div className="mt-4 flex justify-between">
           <button className="btn btn-primary" onClick={() => handleEdit(order)}>Edit</button>

@@ -1851,6 +1851,7 @@ const Purchase = () => {
               <th className="py-2 px-4">Kategori Kemasan</th>
               <th className="py-2 px-4">Jumlah Kemasan</th>
               <th className="py-2 px-4">Tanggal Kirim</th>
+              <th className="py-2 px-4">Deadline Kerjasama</th>
               <th className="py-2 px-4">Status</th>
             </tr>
           </thead>
@@ -1864,7 +1865,8 @@ const Purchase = () => {
                 <td className="py-2 px-4 text-left">{item.packaging}</td>
                 <td className="py-2 px-4 text-left">{item.stock}</td>
                 <td className="py-2 px-4 text-left">{item.deliveryDate}</td>
-                <td className="py-2 px-4 text-left">{item.status}</td>
+                <td className="py-2 px-4 text-left">{item.deadlineDate}</td>
+                <td className="py-2 px-4 text-left">{item.statusDelivery}</td>
               </tr>
             ))}
           </tbody>

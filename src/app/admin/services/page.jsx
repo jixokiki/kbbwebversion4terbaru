@@ -857,6 +857,7 @@ const UserProfile = () => {
     namaProduct: "",
     stock: "",
     deliveryDate: "",
+    deadlineDate:"",
   });
   const [errors, setErrors] = useState({});
   const [toastMessage, setToastMessage] = useState(null);
@@ -966,6 +967,7 @@ const UserProfile = () => {
     if (!formData.namaProduct) newErrors.namaProduct = "Product is required";
     if (!formData.stock) newErrors.stock = "Stock is required";
     if (!formData.deliveryDate) newErrors.deliveryDate = "Delivery date is required";
+    if (!formData.deadlineDate) newErrors.deadlineDate = "Dadline date is required";
 
     setErrors(newErrors);
 
@@ -985,6 +987,7 @@ const UserProfile = () => {
             namaProduct: formData.namaProduct,
             stock: formData.stock,
             deliveryDate: formData.deliveryDate,
+            deadlineDate:formData.deadlineDate,
             totalHarga: totalHarga,
             status: "diproses",
             timestamp: new Date(),
@@ -1001,6 +1004,7 @@ const UserProfile = () => {
             namaProduct: formData.namaProduct,
             stock: formData.stock,
             deliveryDate: formData.deliveryDate,
+            deadlineDate: formData.deadlineDate,
             totalHarga: totalHarga,
             status: "barang ready",
             timestamp: new Date(),
@@ -1016,6 +1020,7 @@ const UserProfile = () => {
           namaProduct: "",
           stock: "",
           deliveryDate: "",
+          deadlineDate:"",
         });
         setEditOrderId(null);
         setIsEditModalOpen(false);
@@ -1034,6 +1039,7 @@ const UserProfile = () => {
       namaProduct: order.namaProduct,
       stock: order.stock,
       deliveryDate: order.deliveryDate,
+      deadlineDate: order.deadlineDate,
     });
     setEditOrderId(order.id);
     setIsEditModalOpen(true);
@@ -1176,6 +1182,17 @@ const UserProfile = () => {
                   type="date"
                   name="deliveryDate"
                   value={formData.deliveryDate}
+                  onChange={handleChange}
+                  className="input input-bordered w-full"
+                  required
+                />
+              </label>
+              <label className="block mb-2">
+                Akhir Kerjasama
+                <input
+                  type="date"
+                  name="deliveryDate"
+                  value={formData.deadlineDate}
                   onChange={handleChange}
                   className="input input-bordered w-full"
                   required
